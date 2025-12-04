@@ -79,39 +79,78 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
         except Exception:
             print(f"INFO: No cookie banner or already accepted", file=sys.stderr)
 
-        # Login if credentials provided
+        # Login if credentials provided — use XPath for button text and robust waits
         if username and password:
             try:
-                username_field = WebDriverWait(driver, 5).until(
+                username_field = WebDriverWait(driver, 8).until(
                     EC.presence_of_element_located((By.ID, "identifier"))
                 )
+                username_field.clear()
                 username_field.send_keys(username)
                 print(f"INFO: Entered username", file=sys.stderr)
-                
-                password_field = driver.find_element(By.CSS_SELECTOR, 'input[name="password"]')
+
+                password_field = WebDriverWait(driver, 8).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="password"]'))
+                )
+                password_field.clear()
                 password_field.send_keys(password)
                 print(f"INFO: Entered password", file=sys.stderr)
-                
-                login_btn = driver.find_element(By.CSS_SELECTOR, 'button:has-text("Sign in with password")')
-                login_btn.click()
-                print(f"INFO: Clicked login", file=sys.stderr)
-                
-                time.sleep(5)  # Wait for login to complete
+
+                # Find login button by text (XPath) — more reliable than CSS pseudo selectors
+                try:
+                    login_btn = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(normalize-space(.), 'Sign in with password')]") )
+                    )
+                except Exception:
+                    # fallback: any button with 'Sign in' text
+                    try:
+                        login_btn = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.XPATH, "//button[contains(normalize-space(.), 'Sign in')]") )
+                        )
+                    except Exception:
+                        login_btn = None
+
+                if login_btn:
+                    login_btn.click()
+                    print(f"INFO: Clicked login", file=sys.stderr)
+                    time.sleep(4)
+                else:
+                    print(f"INFO: Login button not found; proceeding without clicking", file=sys.stderr)
             except Exception as e:
                 print(f"INFO: Login skipped or failed ({e})", file=sys.stderr)
 
-        # Click download button
-        try:
-            download_btn = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.ID, "search_primary"))
-            )
-            print(f"INFO: Found download button, clicking...", file=sys.stderr)
-            download_btn.click()
-            
-            # Wait for download to start
-            time.sleep(3)
-        except Exception as e:
-            raise RuntimeError(f"Could not find or click download button: {e}")
+        # Click download button — try multiple selector strategies
+        download_clicked = False
+        download_selectors = [
+            (By.ID, "search_primary"),
+            (By.XPATH, "//button[contains(normalize-space(.), 'Download') or contains(., 'Download')]") ,
+            (By.XPATH, "//a[contains(normalize-space(.), 'Download')]") ,
+            (By.XPATH, "//button[contains(normalize-space(.), 'CSV') or contains(., 'CSV')]") ,
+            (By.XPATH, "//a[contains(normalize-space(.), 'CSV')]") ,
+            (By.CSS_SELECTOR, "button[data-action='download']"),
+            (By.CSS_SELECTOR, "a[data-action='download']"),
+        ]
+
+        for by, sel in download_selectors:
+            try:
+                el = WebDriverWait(driver, 6).until(EC.element_to_be_clickable((by, sel)))
+                print(f"INFO: Clicking download selector {by}:{sel}", file=sys.stderr)
+                el.click()
+                download_clicked = True
+                time.sleep(2)
+                break
+            except Exception:
+                continue
+
+        if not download_clicked:
+            # Save page source for debugging
+            debug_html = os.path.join(dest_dir, f"selenium_debug_{fmt['date']}.html")
+            try:
+                with open(debug_html, "w", encoding="utf-8") as fh:
+                    fh.write(driver.page_source)
+            except Exception:
+                pass
+            raise RuntimeError(f"Could not find or click download button (tried multiple selectors). Saved page source: {debug_html}")
 
         # Find the downloaded file
         time.sleep(2)
