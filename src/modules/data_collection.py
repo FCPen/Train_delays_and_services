@@ -16,22 +16,23 @@ import shutil
 import subprocess
 
 try:
-	from playwright.sync_api import sync_playwright
-	HAS_PLAYWRIGHT = True
+	# We use Selenium in a separate worker process for browser automation
+	import selenium
+	HAS_SELENIUM = True
 except ImportError:
-	HAS_PLAYWRIGHT = False
+	HAS_SELENIUM = False
 
 
 def download_csv_with_browser(url_template: str, d: date, dest_dir: str, username: str = None, password: str = None) -> str:
-	"""Download a CSV using Playwright by invoking a separate worker process.
+	"""Download a CSV using Selenium by invoking a separate worker process.
 
-	On Windows and in Jupyter, running Playwright in a separate Python process
-	avoids asyncio/subprocess limitations when invoked from threads or event loops.
+	Runs a worker subprocess with Chrome/Selenium to handle browser automation,
+	avoiding asyncio and Jupyter event loop conflicts.
 
 	Returns the path to the saved file.
 	"""
-	if not HAS_PLAYWRIGHT:
-		raise ImportError("Playwright is not installed. Run: pip install playwright && playwright install")
+	if not HAS_SELENIUM:
+		raise ImportError("Selenium and webdriver-manager are required. Run: pip install selenium webdriver-manager")
 
 	os.makedirs(dest_dir, exist_ok=True)
 
@@ -231,8 +232,8 @@ def main(argv=None):
 
 	try:
 		if args.use_browser:
-			if not HAS_PLAYWRIGHT:
-				print("Error: Playwright not installed. Run: pip install playwright && playwright install")
+			if not HAS_SELENIUM:
+				print("Error: Selenium/webdriver-manager not installed. Run: pip install selenium webdriver-manager")
 				sys.exit(1)
 			collect_csvs_with_browser(start, end, args.url_template, args.output, dest_dir=args.dest_dir,
 										username=args.username, password=args.password)

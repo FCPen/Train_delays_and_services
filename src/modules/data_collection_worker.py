@@ -1,13 +1,18 @@
 import argparse
 import os
-import shutil
-import json
-import time
 import sys
-from pathlib import Path
+import time
 from datetime import datetime
+from pathlib import Path
+import shutil
 
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 def _format_date_for_template_from_iso(iso_date: str):
@@ -29,6 +34,7 @@ def _format_date_for_template_from_iso(iso_date: str):
 
 
 def download_one(url_template: str, iso_date: str, dest_dir: str, username: str = None, password: str = None) -> str:
+    """Download CSV using Selenium + Chrome. Simple, stable, reliable."""
     os.makedirs(dest_dir, exist_ok=True)
     fmt = _format_date_for_template_from_iso(iso_date)
 
@@ -37,97 +43,100 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
     else:
         url = url_template.format(**fmt)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+    print(f"INFO: Starting download for {iso_date}", file=sys.stderr)
 
+    # Set up Chrome options
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    
+    # Set download directory to dest_dir
+    prefs = {"download.default_directory": os.path.abspath(dest_dir)}
+    chrome_options.add_experimental_option("prefs", prefs)
+
+    # Create driver with auto-managed ChromeDriver
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=chrome_options
+    )
+
+    try:
+        print(f"INFO: Navigating to {url}", file=sys.stderr)
+        driver.get(url)
+        
+        # Wait for page to load
+        time.sleep(3)
+
+        # Accept cookie banner if present
         try:
-            print(f"INFO: Navigating to {url}", file=sys.stderr)
-            page.goto(url, wait_until="networkidle", timeout=30000)
+            accept_btn = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.ID, "accept-btn"))
+            )
+            accept_btn.click()
+            print(f"INFO: Accepted cookie banner", file=sys.stderr)
+            time.sleep(1)
+        except Exception:
+            print(f"INFO: No cookie banner or already accepted", file=sys.stderr)
 
-            # If a cookie/consent banner appears, accept it so it doesn't block UI elements
+        # Login if credentials provided
+        if username and password:
             try:
-                if page.wait_for_selector('#accept-btn', timeout=3000):
-                    page.click('#accept-btn', timeout=3000)
-                    page.wait_for_timeout(500)
-            except Exception:
-                try:
-                    if page.wait_for_selector('#disagree-btn', timeout=3000):
-                        page.click('#disagree-btn', timeout=3000)
-                        page.wait_for_timeout(500)
-                except Exception:
-                    pass
-
-            if username and password:
-                # These selectors were discovered for Realtime Trains; adjust if necessary
-                try:
-                    page.fill("#identifier", username, timeout=5000)
-                except Exception:
-                    pass
-                try:
-                    page.fill('input[name="password"]', password, timeout=5000)
-                except Exception:
-                    pass
-                try:
-                    page.click('button:has-text("Sign in with password")', timeout=10000)
-                    page.wait_for_load_state("networkidle", timeout=10000)
-                except Exception:
-                    pass
-
-            download_button_selector = '#search_primary'
-
-            # Wait for the download button to appear
-            try:
-                page.wait_for_selector(download_button_selector, timeout=15000)
-            except PlaywrightTimeoutError:
-                # proceed — we'll attempt click and if it times out we'll capture debug info
-                pass
-
-            # Attempt to initiate download, with fallbacks
-            try:
-                with page.expect_download(timeout=60000) as download_info:
-                    try:
-                        page.click(download_button_selector, timeout=30000)
-                    except Exception as e_click:
-                        # fallback: try JS click
-                        try:
-                            sel_js = json.dumps(download_button_selector)
-                            page.evaluate(f"document.querySelector({sel_js})?.click()")
-                        except Exception:
-                            raise e_click
-                    # small wait for download initiation
-                    page.wait_for_timeout(1500)
-
-                download = download_info.value
-                temp_path = download.path()
-
-                filename = f"data_{fmt['date']}.csv"
-                dest_path = os.path.join(dest_dir, filename)
-
-                # Move to destination
-                shutil.move(str(temp_path), dest_path)
-
-                return dest_path
-
+                username_field = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.ID, "identifier"))
+                )
+                username_field.send_keys(username)
+                print(f"INFO: Entered username", file=sys.stderr)
+                
+                password_field = driver.find_element(By.CSS_SELECTOR, 'input[name="password"]')
+                password_field.send_keys(password)
+                print(f"INFO: Entered password", file=sys.stderr)
+                
+                login_btn = driver.find_element(By.CSS_SELECTOR, 'button:has-text("Sign in with password")')
+                login_btn.click()
+                print(f"INFO: Clicked login", file=sys.stderr)
+                
+                time.sleep(5)  # Wait for login to complete
             except Exception as e:
-                # Save debug artifacts for diagnosis
-                debug_prefix = f"debug_{fmt['date']}"
-                png = os.path.join(dest_dir, f"{debug_prefix}.png")
-                html = os.path.join(dest_dir, f"{debug_prefix}.html")
-                try:
-                    page.screenshot(path=png, full_page=True)
-                except Exception:
-                    pass
-                try:
-                    with open(html, "w", encoding="utf-8") as fh:
-                        fh.write(page.content())
-                except Exception:
-                    pass
+                print(f"INFO: Login skipped or failed ({e})", file=sys.stderr)
 
-                raise RuntimeError(f"Download initiation failed: {e}. Saved debug files: {png}, {html}. Page URL: {page.url}") from e
+        # Click download button
+        try:
+            download_btn = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.ID, "search_primary"))
+            )
+            print(f"INFO: Found download button, clicking...", file=sys.stderr)
+            download_btn.click()
+            
+            # Wait for download to start
+            time.sleep(3)
+        except Exception as e:
+            raise RuntimeError(f"Could not find or click download button: {e}")
 
-        finally:
-            browser.close()
+        # Find the downloaded file
+        time.sleep(2)
+        files = os.listdir(dest_dir)
+        csv_files = [f for f in files if f.endswith(".csv")]
+        
+        if not csv_files:
+            raise RuntimeError(f"No CSV file found in {dest_dir} after download attempt")
+
+        # Use the most recently modified CSV
+        csv_file = max(csv_files, key=lambda f: os.path.getmtime(os.path.join(dest_dir, f)))
+        src_path = os.path.join(dest_dir, csv_file)
+        
+        # Rename to standardized name
+        dest_filename = f"data_{fmt['date']}.csv"
+        dest_path = os.path.join(dest_dir, dest_filename)
+        
+        if src_path != dest_path:
+            shutil.move(src_path, dest_path)
+        
+        print(f"INFO: Downloaded to {dest_path}", file=sys.stderr)
+        return dest_path
+
+    finally:
+        driver.quit()
 
 
 def main(argv=None):
