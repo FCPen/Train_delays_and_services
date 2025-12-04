@@ -4,9 +4,11 @@ import os
 import sys
 import time
 from typing import Iterable
-import urllib.request
-import urllib.error
+import urllib.parse
 import requests
+from requests.adapters import HTTPAdapter
+from requests import exceptions as req_exceptions
+from urllib3.util.retry import Retry
 
 
 def _format_date_for_template(d: date) -> dict:
@@ -36,33 +38,40 @@ def download_csv_for_date(url_template: str, d: date, dest_dir: str, retries: in
 		url = url_template.format(**fmt)
 
 	# derive filename from URL
-	filename = os.path.basename(urllib.request.urlparse(url).path)
+	filename = os.path.basename(urllib.parse.urlparse(url).path)
 	if not filename:
 		filename = f"data_{fmt['date']}.csv"
 
 	dest_path = os.path.join(dest_dir, filename)
 
+	# use requests with a session-level retry strategy
+	session = requests.Session()
+	retry_strategy = Retry(total=retries, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+	adapter = HTTPAdapter(max_retries=retry_strategy)
+	session.mount("https://", adapter)
+	session.mount("http://", adapter)
+
 	attempt = 0
-	while attempt < retries:
+	while attempt < max(1, retries):
 		try:
-			req = urllib.request.Request(url, headers={"User-Agent": "train-data-collector/1.0"})
-			with urllib.request.urlopen(req, timeout=timeout) as resp:
-				if resp.status != 200:
-					raise urllib.error.HTTPError(url, resp.status, resp.reason, resp.headers, None)
-				body = resp.read()
-				with open(dest_path, "wb") as fh:
-					fh.write(body)
+			resp = session.get(url, timeout=timeout, headers={"User-Agent": "train-data-collector/1.0"})
+			resp.raise_for_status()
+			body = resp.content
+			with open(dest_path, "wb") as fh:
+				fh.write(body)
 			return dest_path
-		except urllib.error.HTTPError as e:
-			# For 404, don't retry many times
-			if e.code == 404:
+		except req_exceptions.HTTPError as e:
+			status = None
+			if hasattr(e, 'response') and e.response is not None:
+				status = e.response.status_code
+			# For 404, don't retry
+			if status == 404:
 				raise
 			attempt += 1
 			time.sleep(1 + attempt)
-		except (urllib.error.URLError, TimeoutError) as e:
+		except req_exceptions.RequestException:
 			attempt += 1
 			time.sleep(1 + attempt)
-	# if we get here, raise last error
 	raise RuntimeError(f"Failed to download {url} after {retries} attempts")
 
 
@@ -87,8 +96,11 @@ def collect_csvs(start_date: date, end_date: date, url_template: str, output_fil
 			path = download_csv_for_date(url_template, d, dest_dir)
 			print(f"Downloaded {d.isoformat()} -> {path}")
 			downloaded_files.append(path)
-		except urllib.error.HTTPError as e:
-			print(f"Skipping {d.isoformat()}: HTTP {e.code}")
+		except req_exceptions.HTTPError as e:
+			status = None
+			if hasattr(e, 'response') and e.response is not None:
+				status = e.response.status_code
+			print(f"Skipping {d.isoformat()}: HTTP {status}")
 		except Exception as e:
 			print(f"Skipping {d.isoformat()}: {e}")
 
