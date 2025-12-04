@@ -3,11 +3,14 @@ import argparse
 import os
 import sys
 import time
-from typing import Iterable
+from typing import Iterable, Optional, Tuple
+import urllib.parse
 import requests
+from requests.auth import HTTPBasicAuth
 from requests.adapters import HTTPAdapter
 from requests import exceptions as req_exceptions
 from urllib3.util.retry import Retry
+import getpass
 
 
 def _format_date_for_template(d: date) -> dict:
@@ -19,7 +22,8 @@ def _format_date_for_template(d: date) -> dict:
 	}
 
 
-def download_csv_for_date(url_template: str, d: date, dest_dir: str, retries: int = 3, timeout: int = 30) -> str:
+def download_csv_for_date(url_template: str, d: date, dest_dir: str, retries: int = 3, timeout: int = 30,
+						  auth: Optional[Tuple[str, str]] = None) -> str:
 	"""Download a CSV for a specific date using `url_template`.
 
 	url_template may include either `{date}` (formatted as YYYYMMDD) or the named fields
@@ -53,7 +57,12 @@ def download_csv_for_date(url_template: str, d: date, dest_dir: str, retries: in
 	attempt = 0
 	while attempt < max(1, retries):
 		try:
-			resp = session.get(url, timeout=timeout, headers={"User-Agent": "train-data-collector/1.0"})
+			# include HTTP basic auth if provided
+			kwargs = {"timeout": timeout, "headers": {"User-Agent": "train-data-collector/1.0"}}
+			if auth:
+				# requests accepts a (user, pass) tuple or an HTTPBasicAuth instance
+				kwargs["auth"] = HTTPBasicAuth(auth[0], auth[1])
+			resp = session.get(url, **kwargs)
 			resp.raise_for_status()
 			body = resp.content
 			with open(dest_path, "wb") as fh:
@@ -82,7 +91,8 @@ def daterange(start_date: date, end_date: date) -> Iterable[date]:
 		current = current + timedelta(days=1)
 
 
-def collect_csvs(start_date: date, end_date: date, url_template: str, output_file: str, dest_dir: str = "data/raw") -> str:
+def collect_csvs(start_date: date, end_date: date, url_template: str, output_file: str, dest_dir: str = "data/raw",
+				 auth: Optional[Tuple[str, str]] = None) -> str:
 	"""Download CSVs for each day in [start_date, end_date] and merge into `output_file`.
 
 	The header from the first successfully downloaded file is preserved; subsequent headers are skipped.
@@ -92,7 +102,7 @@ def collect_csvs(start_date: date, end_date: date, url_template: str, output_fil
 	downloaded_files = []
 	for d in daterange(start_date, end_date):
 		try:
-			path = download_csv_for_date(url_template, d, dest_dir)
+			path = download_csv_for_date(url_template, d, dest_dir, auth=auth)
 			print(f"Downloaded {d.isoformat()} -> {path}")
 			downloaded_files.append(path)
 		except req_exceptions.HTTPError as e:
@@ -143,6 +153,8 @@ def main(argv=None):
 												 "Example: https://example.org/data_{date}.csv"))
 	parser.add_argument("output", help="Path for merged CSV output file")
 	parser.add_argument("--dest-dir", default="data/raw", help="Directory to save downloaded daily CSVs")
+	parser.add_argument("--username", help="Username for HTTP basic auth")
+	parser.add_argument("--password", help="Password for HTTP basic auth (avoid using on shared shells)")
 	args = parser.parse_args(argv)
 
 	start = args.start_date
@@ -150,8 +162,14 @@ def main(argv=None):
 	if start > end:
 		parser.error("start_date must be <= end_date")
 
+	# prepare auth tuple if requested
+	auth = None
+	if args.username:
+		pwd = args.password if args.password is not None else getpass.getpass(prompt=f"Password for {args.username}: ")
+		auth = (args.username, pwd)
+
 	try:
-		collect_csvs(start, end, args.url_template, args.output, dest_dir=args.dest_dir)
+		collect_csvs(start, end, args.url_template, args.output, dest_dir=args.dest_dir, auth=auth)
 	except Exception as e:
 		print(f"Error: {e}")
 		sys.exit(2)
