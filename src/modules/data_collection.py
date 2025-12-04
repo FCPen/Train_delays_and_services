@@ -13,8 +13,7 @@ from urllib3.util.retry import Retry
 import getpass
 from pathlib import Path
 import shutil
-from concurrent.futures import ThreadPoolExecutor
-import threading
+import subprocess
 
 try:
 	from playwright.sync_api import sync_playwright
@@ -24,69 +23,37 @@ except ImportError:
 
 
 def download_csv_with_browser(url_template: str, d: date, dest_dir: str, username: str = None, password: str = None) -> str:
-	"""Download a CSV using Playwright browser automation for button-click workflows.
+	"""Download a CSV using Playwright by invoking a separate worker process.
 
-	This function works in both CLI and Jupyter notebook environments by running
-	Playwright in a separate thread to avoid asyncio event loop conflicts.
+	On Windows and in Jupyter, running Playwright in a separate Python process
+	avoids asyncio/subprocess limitations when invoked from threads or event loops.
 
 	Returns the path to the saved file.
 	"""
 	if not HAS_PLAYWRIGHT:
 		raise ImportError("Playwright is not installed. Run: pip install playwright && playwright install")
 
-	# Run in a separate thread to avoid Jupyter's asyncio event loop conflicts
-	with ThreadPoolExecutor(max_workers=1) as executor:
-		future = executor.submit(_download_csv_sync, url_template, d, dest_dir, username, password)
-		return future.result()
-
-
-def _download_csv_sync(url_template: str, d: date, dest_dir: str, username: str = None, password: str = None) -> str:
-	"""Sync version of download (runs in a separate thread)."""
 	os.makedirs(dest_dir, exist_ok=True)
-	fmt = _format_date_for_template(d)
 
-	# Format the URL for this date
-	if "{date}" in url_template:
-		url = url_template.format(date=fmt["date"])
-	else:
-		url = url_template.format(**fmt)
+	worker_path = Path(__file__).parent / "data_collection_worker.py"
+	if not worker_path.exists():
+		raise FileNotFoundError(f"Worker script not found: {worker_path}")
 
-	with sync_playwright() as p:
-		# Launch browser (headless=True for silent mode)
-		browser = p.chromium.launch(headless=True)
-		page = browser.new_page()
+	cmd = [sys.executable, str(worker_path), "--url-template", url_template, "--date", d.isoformat(), "--dest-dir", dest_dir]
+	if username:
+		cmd.extend(["--username", username])
+	if password:
+		cmd.extend(["--password", password])
 
-		try:
-			page.goto(url, wait_until="networkidle")
+	proc = subprocess.run(cmd, capture_output=True, text=True)
+	if proc.returncode != 0:
+		raise RuntimeError(f"Playwright worker failed (rc={proc.returncode})\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
 
-			# [CUSTOMIZE] Login if needed
-			if username and password:
-				_login_playwright(page, username, password)
-
-			# [CUSTOMIZE] Find and click the download button
-			download_button_selector = '#search_primary'  # Realtime Trains download button
-
-			# Set up download handler before clicking
-			with page.expect_download() as download_info:
-				page.click(download_button_selector)
-				# Wait a moment for download to start
-				page.wait_for_timeout(1000)
-
-			# Get the downloaded file
-			download = download_info.value
-			temp_path = download.path()
-
-			# Derive filename (use date-based naming for consistency)
-			filename = f"data_{fmt['date']}.csv"
-			dest_path = os.path.join(dest_dir, filename)
-
-			# Move downloaded file to destination
-			shutil.move(str(temp_path), dest_path)
-
-			return dest_path
-
-		finally:
-			browser.close()
+	# Worker prints the downloaded path as the last stdout line
+	out_lines = [ln for ln in proc.stdout.splitlines() if ln.strip()]
+	if not out_lines:
+		raise RuntimeError(f"Worker completed but produced no output. stdout:\n{proc.stdout}")
+	return out_lines[-1]
 
 
 def _login_playwright(page, username: str, password: str) -> None:
