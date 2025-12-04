@@ -286,7 +286,7 @@ def main(argv=None):
 
 
 def collect_csvs_with_browser(start_date: date, end_date: date, url_template: str, output_file: str,
-								dest_dir: str = "data/raw", username: str = None, password: str = None) -> str:
+								dest_dir: str = "../resources", username: str = None, password: str = None) -> str:
 	"""Download CSVs using browser automation for each day in [start_date, end_date], then merge.
 
 	Returns the path to the merged output file.
