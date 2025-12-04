@@ -33,8 +33,14 @@ def _format_date_for_template_from_iso(iso_date: str):
     }
 
 
-def download_one(url_template: str, iso_date: str, dest_dir: str, username: str = None, password: str = None) -> str:
-    """Download CSV using Selenium + Chrome. Simple, stable, reliable."""
+def download_one(url_template: str, iso_date: str, dest_dir: str, username: str = None, password: str = None,
+                 interactive: bool = False, cookies_file: str | None = None) -> str:
+    """Download CSV using Selenium + Chrome.
+
+    If `interactive` is True the browser runs non-headless so you can manually complete any UI steps
+    (login, MFA, etc.) once. Cookies are saved to `cookies_file` after a successful run and reused
+    on subsequent runs to avoid repeated manual login.
+    """
     os.makedirs(dest_dir, exist_ok=True)
     fmt = _format_date_for_template_from_iso(iso_date)
 
@@ -47,9 +53,13 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
 
     # Set up Chrome options
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+    if not interactive:
+        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+    else:
+        # interactive mode: visible browser for manual interaction
+        print("INFO: Running in interactive mode (visible browser). Complete any prompts manually.", file=sys.stderr)
     
     # Set download directory to dest_dir
     prefs = {"download.default_directory": os.path.abspath(dest_dir)}
@@ -61,7 +71,27 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
         options=chrome_options
     )
 
-    try:
+    # If cookies file exists, load cookies into the browser before navigating
+    if cookies_file and os.path.exists(cookies_file):
+        try:
+            # Navigate to the base domain to be able to set cookies
+            base_url = urllib_base(url)
+            driver.get(base_url)
+            with open(cookies_file, "r", encoding="utf-8") as fh:
+                import json as _json
+                ck = _json.load(fh)
+                for c in ck:
+                    # Selenium requires 'domain' key present; ensure cookie dict is compatible
+                    try:
+                        driver.add_cookie(c)
+                    except Exception:
+                        # ignore cookies that cannot be added
+                        pass
+            print(f"INFO: Loaded cookies from {cookies_file}", file=sys.stderr)
+        except Exception:
+            print(f"INFO: Failed to load cookies from {cookies_file}", file=sys.stderr)
+
+        try:
         print(f"INFO: Navigating to {url}", file=sys.stderr)
         driver.get(url)
         
@@ -174,8 +204,18 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
         print(f"INFO: Downloaded to {dest_path}", file=sys.stderr)
         return dest_path
 
-    finally:
-        driver.quit()
+        finally:
+            # Save cookies after successful run (or interactive session)
+            try:
+                if cookies_file:
+                    import json as _json
+                    ck = driver.get_cookies()
+                    with open(cookies_file, "w", encoding="utf-8") as fh:
+                        _json.dump(ck, fh)
+                    print(f"INFO: Saved cookies to {cookies_file}", file=sys.stderr)
+            except Exception:
+                pass
+            driver.quit()
 
 
 def main(argv=None):
