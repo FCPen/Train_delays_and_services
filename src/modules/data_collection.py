@@ -13,31 +13,21 @@ from urllib3.util.retry import Retry
 import getpass
 from pathlib import Path
 import shutil
+import asyncio
+import nest_asyncio
+
+# Allow nested async event loops (needed for Jupyter notebooks)
+nest_asyncio.apply()
+
 try:
-	from playwright.sync_api import sync_playwright, Page
+	from playwright.async_api import async_playwright
+	HAS_PLAYWRIGHT = True
 except ImportError:
-	sync_playwright = None
-	Page = None
+	HAS_PLAYWRIGHT = False
 
 
-def download_csv_with_browser(url_template: str, d: date, dest_dir: str, username: str = None, password: str = None) -> str:
-	"""Download a CSV using Playwright browser automation for button-click workflows.
-
-	This function:
-	1. Launches a browser
-	2. Logs in (if username/password provided)
-	3. Navigates to the date-specific URL
-	4. Clicks a download button
-	5. Waits for and moves the downloaded file to dest_dir
-
-	IMPORTANT: You MUST customize the selectors below for your specific website.
-	See comments marked [CUSTOMIZE] below.
-
-	Returns the path to the saved file.
-	"""
-	if sync_playwright is None:
-		raise ImportError("Playwright is not installed. Run: pip install playwright && playwright install")
-
+async def _download_csv_with_browser_async(url_template: str, d: date, dest_dir: str, username: str = None, password: str = None) -> str:
+	"""Async version of download for Jupyter notebooks."""
 	os.makedirs(dest_dir, exist_ok=True)
 	fmt = _format_date_for_template(d)
 
@@ -47,35 +37,29 @@ def download_csv_with_browser(url_template: str, d: date, dest_dir: str, usernam
 	else:
 		url = url_template.format(**fmt)
 
-	with sync_playwright() as p:
+	async with async_playwright() as p:
 		# Launch browser (headless=True for silent mode)
-		browser = p.chromium.launch(headless=True)
-		page = browser.new_page()
+		browser = await p.chromium.launch(headless=True)
+		page = await browser.new_page()
 
 		try:
-			page.goto(url, wait_until="networkidle")
+			await page.goto(url, wait_until="networkidle")
 
 			# [CUSTOMIZE] Login if needed
 			if username and password:
-				login_playwright(page, username, password)
+				await _login_playwright_async(page, username, password)
 
 			# [CUSTOMIZE] Find and click the download button
-			# Example selectors (adjust for your site):
-			# - By text: page.click('button:has-text("Download")')
-			# - By ID: page.click('#download-btn')
-			# - By class: page.click('.export-button')
-			# - By data attribute: page.click('[data-action="download"]')
-
-			download_button_selector = '#search_primary'  # Realtime Trains download button - has is used for the id field
+			download_button_selector = '#search_primary'  # Realtime Trains download button
 
 			# Set up download handler before clicking
-			with page.expect_download() as download_info:
-				page.click(download_button_selector)
+			async with page.expect_download() as download_info:
+				await page.click(download_button_selector)
 				# Wait a moment for download to start
-				page.wait_for_timeout(1000)
+				await page.wait_for_timeout(1000)
 
 			# Get the downloaded file
-			download = download_info.value
+			download = await download_info.value
 			temp_path = download.path()
 
 			# Derive filename (use date-based naming for consistency)
@@ -88,30 +72,37 @@ def download_csv_with_browser(url_template: str, d: date, dest_dir: str, usernam
 			return dest_path
 
 		finally:
-			browser.close()
+			await browser.close()
 
 
-def login_playwright(page, username: str, password: str) -> None:
-	"""
-	Log in to the website using Playwright.
-
-	[CUSTOMIZE] This template assumes a simple form-based login.
-	Adjust the selectors and flow for your specific site.
-	"""
+async def _login_playwright_async(page, username: str, password: str) -> None:
+	"""Async version of login."""
 	# Realtime Trains login form selectors
 	username_selector = '#identifier'
 	password_selector = 'input[name="password"]'
-	login_button_selector = 'button:has-text("Sign in with password")'  
+	login_button_selector = 'button:has-text("Sign in with password")'
 
 	# Fill in credentials
-	page.fill(username_selector, username)
-	page.fill(password_selector, password)
+	await page.fill(username_selector, username)
+	await page.fill(password_selector, password)
 
 	# Click login button and wait for navigation
-	page.click(login_button_selector)
-	page.wait_for_load_state("networkidle")
+	await page.click(login_button_selector)
+	await page.wait_for_load_state("networkidle")
 
 
+def download_csv_with_browser(url_template: str, d: date, dest_dir: str, username: str = None, password: str = None) -> str:
+	"""Download a CSV using Playwright browser automation for button-click workflows.
+
+	This function works in both CLI and Jupyter notebook environments.
+
+	Returns the path to the saved file.
+	"""
+	if not HAS_PLAYWRIGHT:
+		raise ImportError("Playwright is not installed. Run: pip install playwright && playwright install")
+
+	# Run async function in the event loop (works in both CLI and Jupyter)
+	return asyncio.run(_download_csv_with_browser_async(url_template, d, dest_dir, username, password))
 def _format_date_for_template(d: date) -> dict:
 	return {
 		"date": d.strftime("%Y%m%d"),
@@ -273,7 +264,7 @@ def main(argv=None):
 
 	try:
 		if args.use_browser:
-			if sync_playwright is None:
+			if async_playwright is None:
 				print("Error: Playwright not installed. Run: pip install playwright && playwright install")
 				sys.exit(1)
 			collect_csvs_with_browser(start, end, args.url_template, args.output, dest_dir=args.dest_dir,
