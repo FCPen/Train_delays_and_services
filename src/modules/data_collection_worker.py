@@ -45,6 +45,19 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
             print(f"INFO: Navigating to {url}", file=sys.stderr)
             page.goto(url, wait_until="networkidle", timeout=30000)
 
+            # If a cookie/consent banner appears, accept it so it doesn't block UI elements
+            try:
+                if page.wait_for_selector('#accept-btn', timeout=3000):
+                    page.click('#accept-btn', timeout=3000)
+                    page.wait_for_timeout(500)
+            except Exception:
+                try:
+                    if page.wait_for_selector('#disagree-btn', timeout=3000):
+                        page.click('#disagree-btn', timeout=3000)
+                        page.wait_for_timeout(500)
+                except Exception:
+                    pass
+
             if username and password:
                 # These selectors were discovered for Realtime Trains; adjust if necessary
                 try:
