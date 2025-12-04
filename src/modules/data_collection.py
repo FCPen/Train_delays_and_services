@@ -4,7 +4,6 @@ import os
 import sys
 import time
 from typing import Iterable
-import urllib.parse
 import requests
 from requests.adapters import HTTPAdapter
 from requests import exceptions as req_exceptions
