@@ -66,7 +66,7 @@ def download_csv_with_browser(url_template: str, d: date, dest_dir: str, usernam
 			# - By class: page.click('.export-button')
 			# - By data attribute: page.click('[data-action="download"]')
 
-			download_button_selector = 'button:has-text("Download CSV")'  # [CUSTOMIZE THIS]
+			download_button_selector = '#search_primary'  # Realtime Trains download button - has is used for the id field
 
 			# Set up download handler before clicking
 			with page.expect_download() as download_info:
@@ -98,10 +98,10 @@ def login_playwright(page, username: str, password: str) -> None:
 	[CUSTOMIZE] This template assumes a simple form-based login.
 	Adjust the selectors and flow for your specific site.
 	"""
-	# [CUSTOMIZE] Adjust these selectors for your login form
-	username_selector = 'input[name="username"]'  # [CUSTOMIZE THIS]
-	password_selector = 'input[name="password"]'  # [CUSTOMIZE THIS]
-	login_button_selector = 'button:has-text("Log In")'  # [CUSTOMIZE THIS]
+	# Realtime Trains login form selectors
+	username_selector = '#identifier'
+	password_selector = 'input[name="password"]'
+	login_button_selector = 'button:has-text("Sign in with password")'  
 
 	# Fill in credentials
 	page.fill(username_selector, username)
@@ -193,7 +193,7 @@ def daterange(start_date: date, end_date: date) -> Iterable[date]:
 		current = current + timedelta(days=1)
 
 
-def collect_csvs(start_date: date, end_date: date, url_template: str, output_file: str, dest_dir: str = "data/raw",
+def collect_csvs(start_date: date, end_date: date, url_template: str, output_file: str, dest_dir: str = "../resources",
 				 auth: Optional[Tuple[str, str]] = None) -> str:
 	"""Download CSVs for each day in [start_date, end_date] and merge into `output_file`.
 
@@ -254,7 +254,7 @@ def main(argv=None):
 	parser.add_argument("url_template", help=("URL template for daily CSV. Use either '{date}' for YYYYMMDD or '{yyyy}', '{mm}', '{dd}' fields. "
 												 "Example: https://example.org/data_{date}.csv"))
 	parser.add_argument("output", help="Path for merged CSV output file")
-	parser.add_argument("--dest-dir", default="data/raw", help="Directory to save downloaded daily CSVs")
+	parser.add_argument("--dest-dir", default="../resources", help="Directory to save downloaded daily CSVs")
 	parser.add_argument("--username", help="Username for HTTP basic auth or browser login")
 	parser.add_argument("--password", help="Password for HTTP basic auth or browser login (avoid using on shared shells)")
 	parser.add_argument("--use-browser", action="store_true", help="Use browser automation (Playwright) instead of direct HTTP requests. Required for button-click downloads.")
