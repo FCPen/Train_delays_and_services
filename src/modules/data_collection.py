@@ -46,9 +46,13 @@ def download_csv_with_browser(url_template: str, d: date, dest_dir: str, usernam
 	if password:
 		cmd.extend(["--password", password])
 
+	# Use a cookies file inside the dest_dir to persist session between runs
+	cookies_file = os.path.join(os.path.abspath(dest_dir), "selenium_cookies.json")
+	cmd.extend(["--cookies-file", cookies_file])
+
 	proc = subprocess.run(cmd, capture_output=True, text=True)
 	if proc.returncode != 0:
-		raise RuntimeError(f"Playwright worker failed (rc={proc.returncode})\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
+		raise RuntimeError(f"Selenium worker failed (rc={proc.returncode})\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
 
 	# Worker prints the downloaded path as the last stdout line
 	out_lines = [ln for ln in proc.stdout.splitlines() if ln.strip()]

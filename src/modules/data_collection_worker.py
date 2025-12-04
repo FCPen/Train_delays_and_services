@@ -60,7 +60,7 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
     else:
         # interactive mode: visible browser for manual interaction
         print("INFO: Running in interactive mode (visible browser). Complete any prompts manually.", file=sys.stderr)
-    
+
     # Set download directory to dest_dir
     prefs = {"download.default_directory": os.path.abspath(dest_dir)}
     chrome_options.add_experimental_option("prefs", prefs)
@@ -71,27 +71,27 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
         options=chrome_options
     )
 
-    # If cookies file exists, load cookies into the browser before navigating
-    if cookies_file and os.path.exists(cookies_file):
-        try:
-            # Navigate to the base domain to be able to set cookies
-            base_url = urllib_base(url)
-            driver.get(base_url)
-            with open(cookies_file, "r", encoding="utf-8") as fh:
-                import json as _json
-                ck = _json.load(fh)
-                for c in ck:
-                    # Selenium requires 'domain' key present; ensure cookie dict is compatible
-                    try:
-                        driver.add_cookie(c)
-                    except Exception:
-                        # ignore cookies that cannot be added
-                        pass
-            print(f"INFO: Loaded cookies from {cookies_file}", file=sys.stderr)
-        except Exception:
-            print(f"INFO: Failed to load cookies from {cookies_file}", file=sys.stderr)
+    try:
+        # If cookies file exists, load cookies into the browser before navigating
+        if cookies_file and os.path.exists(cookies_file):
+            try:
+                # Navigate to the base domain to be able to set cookies
+                from urllib.parse import urlparse
+                parsed = urlparse(url)
+                base_url = f"{parsed.scheme}://{parsed.netloc}"
+                driver.get(base_url)
+                with open(cookies_file, "r", encoding="utf-8") as fh:
+                    import json as _json
+                    ck = _json.load(fh)
+                    for c in ck:
+                        try:
+                            driver.add_cookie(c)
+                        except Exception:
+                            pass
+                print(f"INFO: Loaded cookies from {cookies_file}", file=sys.stderr)
+            except Exception:
+                print(f"INFO: Failed to load cookies from {cookies_file}", file=sys.stderr)
 
-        try:
         print(f"INFO: Navigating to {url}", file=sys.stderr)
         driver.get(url)
         
@@ -203,19 +203,18 @@ def download_one(url_template: str, iso_date: str, dest_dir: str, username: str 
         
         print(f"INFO: Downloaded to {dest_path}", file=sys.stderr)
         return dest_path
-
-        finally:
-            # Save cookies after successful run (or interactive session)
-            try:
-                if cookies_file:
-                    import json as _json
-                    ck = driver.get_cookies()
-                    with open(cookies_file, "w", encoding="utf-8") as fh:
-                        _json.dump(ck, fh)
-                    print(f"INFO: Saved cookies to {cookies_file}", file=sys.stderr)
-            except Exception:
-                pass
-            driver.quit()
+    finally:
+        # Save cookies after successful run (or interactive session)
+        try:
+            if cookies_file:
+                import json as _json
+                ck = driver.get_cookies()
+                with open(cookies_file, "w", encoding="utf-8") as fh:
+                    _json.dump(ck, fh)
+                print(f"INFO: Saved cookies to {cookies_file}", file=sys.stderr)
+        except Exception:
+            pass
+        driver.quit()
 
 
 def main(argv=None):
@@ -225,11 +224,14 @@ def main(argv=None):
     parser.add_argument("--dest-dir", required=True)
     parser.add_argument("--username", default=None)
     parser.add_argument("--password", default=None)
+    parser.add_argument("--interactive", action="store_true", help="Run browser visible for manual interaction")
+    parser.add_argument("--cookies-file", default=None, help="Path to JSON file to load/save cookies")
 
     args = parser.parse_args(argv)
 
     try:
-        out = download_one(args.url_template, args.date, args.dest_dir, args.username, args.password)
+        out = download_one(args.url_template, args.date, args.dest_dir, args.username, args.password,
+                   interactive=args.interactive, cookies_file=args.cookies_file)
         # Print the resulting path as the last stdout line for the parent process to read
         print(out)
         return 0
