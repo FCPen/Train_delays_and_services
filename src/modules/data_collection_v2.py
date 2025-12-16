@@ -95,6 +95,11 @@ def main():
     session = requests.Session()
 
     cookies = chrome(domain_name="realtimetrains.co.uk")
+    print("Cookie count:", len(cookies)) #sanity check
+
+    for c in cookies:
+        print(f"{c.domain}  {c.name}")
+
     for c in cookies:
         session.cookies.set(c.name, c.value, domain=c.domain)
 
