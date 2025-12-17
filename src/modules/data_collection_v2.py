@@ -1,6 +1,6 @@
 import requests
 import pandas as pd
-from browser_cookie3 import chrome
+from browser_cookie3 import edge
 from datetime import date
 
 COLUMNS = [
@@ -94,7 +94,7 @@ def main():
     # ---- session with real cookies ----
     session = requests.Session()
 
-    cookies = chrome(domain_name="realtimetrains.co.uk")
+    cookies = edge(domain_name="realtimetrains.co.uk")
     print("Cookie count:", len(cookies)) #sanity check
 
     for c in cookies:
