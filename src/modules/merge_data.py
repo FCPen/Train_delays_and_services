@@ -5,7 +5,7 @@ files = glob(r"C:\Users\fcpen\Documents\Trains_project\Service_data_csv\location
 print(f"Found {len(files)} files")
 
 dfs = []
-for f in files[20:25]:
+for f in files[20]:
     temp_df = pd.read_csv(f, skiprows=2, header=None) #ensures the real header is used
     dfs.append(temp_df)
     print(temp_df.columns.tolist())
