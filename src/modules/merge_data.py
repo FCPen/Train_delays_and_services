@@ -10,13 +10,12 @@ for f in files:
 
 df = pd.concat(dfs, ignore_index=True)
 
+df["run_date_raw"] = df["run_date"]
 
-df["run_date"] = df["run_date"].astype(str).str.strip().str.replace(r'[\u200b\u200c\u200d\u00A0\u200e]', '', regex=True) #stripping any leading/trailing spaces and other odd characters
-df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, errors='coerce', infer_datetime_format=True)
-invalid_dates = df[df["run_date"].isna()]
-if not invalid_dates.empty:
-    print("Rows with invalid dates:")
-    print(invalid_dates)
+df["run_date_clean"] = df["run_date_raw"].astype(str).str.strip().str.replace(r'[\u200b\u200c\u200d\u00A0\u200e]', '', regex=True) #stripping any leading/trailing spaces and other odd characters
+df["run_date_parsed"] = pd.to_datetime(df["run_date_clean"], dayfirst=True, errors='coerce', infer_datetime_format=True)
+
+print(df[df["run_date_parsed"].isna()][["run_date_raw"]])
 
 # # 3. Convert back to string in DD/MM/YYYY format
 # df["run_date"] = df["run_date"].dt.strftime("%d/%m/%Y")
