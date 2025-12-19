@@ -5,34 +5,17 @@ files = glob(r"C:\Users\fcpen\Documents\Trains_project\Service_data_csv\location
 print(f"Found {len(files)} files")
 
 dfs = []
-# for f in files:
-#     temp_df = pd.read_csv(f, skiprows=2) #ensures the real header is used
-#     dfs.append(temp_df)
-#     print(temp_df.columns.tolist())
-#     print(temp_df.head())
+for f in files:
+    temp_df = pd.read_csv(f, skiprows=2) #ensures the real header is used
+    dfs.append(temp_df)
+    # print(temp_df.columns.tolist())
+    # print(temp_df.head())
 
-temp_df_1 = pd.read_csv(files[0], skiprows=2) #ensures the real header is used
+df = pd.concat(dfs, ignore_index=True)
 
-print(temp_df_1.columns.tolist())
-print(temp_df_1.head())
+df["run_date"] = pd.to_datetime(df["run_date_clean"], dayfirst=True, errors='coerce', infer_datetime_format=True)
 
-temp_df_2 = pd.read_csv(files[20], skiprows=2) #ensures the real header is used
-
-print(temp_df_2.columns.tolist())
-print(temp_df_2.head())
-# df = pd.concat(dfs, ignore_index=True)
-
-# df.tail(10)
-
-# df["run_date_raw"] = df["run_date"]
-
-# df["run_date_clean"] = df["run_date_raw"].astype(str).str.strip().str.replace(r'[\u200b\u200c\u200d\u00A0\u200e]', '', regex=True) #stripping any leading/trailing spaces and other odd characters
-# df["run_date_parsed"] = pd.to_datetime(df["run_date_clean"], dayfirst=True, errors='coerce', infer_datetime_format=True)
-
-# print(df[df["run_date_parsed"].isna()][["run_date_raw"]])
-
-# # 3. Convert back to string in DD/MM/YYYY format
-# df["run_date"] = df["run_date"].dt.strftime("%d/%m/%Y")
+df.tail(10)
 
 # df["gbtt_dep"] = pd.to_datetime(df["gbtt_dep"], errors='coerce')
 # df["gbtt_arr"] = pd.to_datetime(df["gbtt_arr"], errors='coerce')
@@ -41,4 +24,4 @@ print(temp_df_2.head())
 # print(df.columns.tolist())
 # print(len(df.columns.tolist()))
 
-# df.to_csv(r"C:\Users\fcpen\Documents\GitHub\Train_delays_and_services\data\RDG_2024-2025_ALL.csv", index=False)
+# df.to_csv(r"C:\Users\fcpen\Documents\GitHub\Train_delays_and_services\data\RDG_2024-2025_ALL.csv", index=False, date_format="%d/%m/%Y")
