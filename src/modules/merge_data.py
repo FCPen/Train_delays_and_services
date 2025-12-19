@@ -9,4 +9,4 @@ df = pd.concat(pd.read_csv(f) for f in files)
 df["run_date"] = pd.to_datetime(df["run_date"])
 df = df.sort_values(["run_date", "gbtt_dep", "gbtt_arr"])
 
-df.to_csv("RDG_2024-2025_ALL.csv", index=False)
+df.to_csv("..\data\RDG_2024-2025_ALL.csv", index=False)
