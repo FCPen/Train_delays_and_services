@@ -11,7 +11,7 @@ for f in files:
 df = pd.concat(dfs, ignore_index=True)
 
 
-df["run_date"] = df["run_date"].astype(str).str.strip() #stripping any leading/trailing spaces
+df["run_date"] = df["run_date"].astype(str).str.strip().str.replace(r'[\u200b\u200c\u200d\u00A0\u200e]', '', regex=True) #stripping any leading/trailing spaces and other odd characters
 df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, errors='coerce', infer_datetime_format=True)
 invalid_dates = df[df["run_date"].isna()]
 if not invalid_dates.empty:
