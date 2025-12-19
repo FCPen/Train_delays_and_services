@@ -5,23 +5,26 @@ files = glob(r"C:\Users\fcpen\Documents\Trains_project\Service_data_csv\location
 print(f"Found {len(files)} files")
 
 dfs = []
-for f in files:
+for f in files[15:25]:
     temp_df = pd.read_csv(f, skiprows=2) #ensures the real header is used
     dfs.append(temp_df)
     print(f"{f}: {len(temp_df)} rows")
+    print(temp_df.columns.tolist())
+    print(temp_df["run_date"].head())
     # print(temp_df.columns.tolist())
     # print(temp_df.head())
 
 df = pd.concat(dfs, ignore_index=True)
 print(f"Total rows after concat: {len(df)}")
+print(df.head())
 
-df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, errors='coerce')
+# df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, errors='coerce')
 
-print(df.tail(10))
+# print(df.tail(10))
 
-invalid_dates = df[df["run_date"].isna()]
-print(f"Rows with invalid run_date: {len(invalid_dates)}")
-print(invalid_dates.head())
+# invalid_dates = df[df["run_date"].isna()]
+# print(f"Rows with invalid run_date: {len(invalid_dates)}")
+# print(invalid_dates.head())
 
 # df["gbtt_dep"] = pd.to_datetime(df["gbtt_dep"], errors='coerce')
 # df["gbtt_arr"] = pd.to_datetime(df["gbtt_arr"], errors='coerce')
