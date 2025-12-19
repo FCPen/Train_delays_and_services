@@ -6,7 +6,7 @@ print(f"Found {len(files)} files")
 
 dfs = []
 for f in files[20]:
-    temp_df = pd.read_csv(f, skiprows=2, header=None) #ensures the real header is used
+    temp_df = pd.read_csv(f, skiprows=2) #ensures the real header is used
     dfs.append(temp_df)
     print(temp_df.columns.tolist())
     print(temp_df.head())
