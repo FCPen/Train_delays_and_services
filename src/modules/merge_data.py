@@ -10,7 +10,15 @@ for f in files:
 
 df = pd.concat(dfs, ignore_index=True)
 
-df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, format="%d/%m/%Y")
+df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, errors='coerce')
+invalid_dates = df[df["run_date"].isna()]
+if not invalid_dates.empty:
+    print("Rows with invalid dates:")
+    print(invalid_dates)
+
+# 3. Convert back to string in DD/MM/YYYY format
+df["run_date"] = df["run_date"].dt.strftime("%d/%m/%Y")
+
 df["gbtt_dep"] = pd.to_datetime(df["gbtt_dep"], errors='coerce')
 df["gbtt_arr"] = pd.to_datetime(df["gbtt_arr"], errors='coerce')
 df = df.sort_values(["run_date", "gbtt_dep", "gbtt_arr"])
