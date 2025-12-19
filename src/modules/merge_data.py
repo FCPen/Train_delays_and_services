@@ -10,7 +10,7 @@ for f in files:
 
 df = pd.concat(dfs, ignore_index=True)
 
-df["run_date"] = pd.to_datetime(df["run_date"])
+df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, format="%d/%m/%Y")
 df = df.sort_values(["run_date", "gbtt_dep", "gbtt_arr"])
 
 print(df.columns.tolist())
