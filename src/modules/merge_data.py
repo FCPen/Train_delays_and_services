@@ -17,7 +17,7 @@ for f in files[12:16]:
 
 df = pd.concat(dfs, ignore_index=True)
 # print(f"Total rows after concat: {len(df)}")
-
+df['run_date_raw'] = df['run_date']
 df["run_date"] = pd.to_datetime(df["run_date"].astype(str).str.strip(), dayfirst=True, errors='coerce')
 
 
