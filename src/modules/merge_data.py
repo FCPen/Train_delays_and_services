@@ -26,4 +26,4 @@ df = df.sort_values(["run_date", "gbtt_dep", "gbtt_arr"])
 print(df.columns.tolist())
 print(len(df.columns.tolist()))
 
-df.to_csv(r"..\data\RDG_2024-2025_ALL.csv", index=False)
+df.to_csv(r"C:\Users\fcpen\Documents\GitHub\Train_delays_and_services\data\RDG_2024-2025_ALL.csv", index=False)
