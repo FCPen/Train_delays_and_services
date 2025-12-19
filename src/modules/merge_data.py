@@ -5,12 +5,16 @@ files = glob(r"C:\Users\fcpen\Documents\Trains_project\Service_data_csv\location
 print(f"Found {len(files)} files")
 
 dfs = []
-for f in files[20]:
-    temp_df = pd.read_csv(f, skiprows=2) #ensures the real header is used
-    dfs.append(temp_df)
-    print(temp_df.columns.tolist())
-    print(temp_df.head())
+# for f in files:
+#     temp_df = pd.read_csv(f, skiprows=2) #ensures the real header is used
+#     dfs.append(temp_df)
+#     print(temp_df.columns.tolist())
+#     print(temp_df.head())
 
+temp_df = pd.read_csv(files[20], skiprows=2) #ensures the real header is used
+
+print(temp_df.columns.tolist())
+print(temp_df.head())
 # df = pd.concat(dfs, ignore_index=True)
 
 # df.tail(10)
