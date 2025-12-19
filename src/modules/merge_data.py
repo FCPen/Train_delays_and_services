@@ -5,14 +5,14 @@ files = glob(r"C:\Users\fcpen\Documents\Trains_project\Service_data_csv\location
 print(f"Found {len(files)} files")
 
 dfs = []
-for f in files:
+for f in files[20:25]:
     temp_df = pd.read_csv(f, skiprows=2, header=0) #ensures the real header is used
     dfs.append(temp_df)
     print(f, temp_df.columns.tolist())
 
-df = pd.concat(dfs, ignore_index=True)
+# df = pd.concat(dfs, ignore_index=True)
 
-df.tail(10)
+# df.tail(10)
 
 # df["run_date_raw"] = df["run_date"]
 
