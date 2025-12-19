@@ -27,8 +27,13 @@ invalid_dates = df[df["run_date"].isna()]
 print(f"Rows with invalid run_date: {len(invalid_dates)}")
 print(invalid_dates.head())
 
-print(df.head(10))
-print(df.tail(10))
+bad_date = df.loc[df['run_date'].isna(), 'run_date_raw'].iloc[0]
+
+# Show the repr to reveal hidden characters
+print(repr(bad_date))
+
+# Show Unicode codes for each character
+print([hex(ord(c)) for c in bad_date])
 # df["gbtt_dep"] = pd.to_datetime(df["gbtt_dep"], errors='coerce')
 # df["gbtt_arr"] = pd.to_datetime(df["gbtt_arr"], errors='coerce')
 # df = df.sort_values(["run_date", "gbtt_dep", "gbtt_arr"])
