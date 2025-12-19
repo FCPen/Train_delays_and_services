@@ -11,10 +11,15 @@ dfs = []
 #     print(temp_df.columns.tolist())
 #     print(temp_df.head())
 
-temp_df = pd.read_csv(files[20], skiprows=2) #ensures the real header is used
+temp_df_1 = pd.read_csv(files[0], skiprows=2) #ensures the real header is used
 
-print(temp_df.columns.tolist())
-print(temp_df.head())
+print(temp_df_1.columns.tolist())
+print(temp_df_1.head())
+
+temp_df_2 = pd.read_csv(files[20], skiprows=2) #ensures the real header is used
+
+print(temp_df_2.columns.tolist())
+print(temp_df_2.head())
 # df = pd.concat(dfs, ignore_index=True)
 
 # df.tail(10)
