@@ -11,6 +11,7 @@ for f in files[12:16]:
     print(f"{f}: {len(temp_df)} rows")
     print(temp_df.columns.tolist())
     print(temp_df["run_date"].head())
+    print(temp_df.iloc[:5, :5])  # first 5 rows, first 5 columns
     # print(temp_df.columns.tolist())
     # print(temp_df.head())
 
