@@ -15,17 +15,19 @@ for f in files[12:16]:
     # print(temp_df.head())
 
 df = pd.concat(dfs, ignore_index=True)
-print(f"Total rows after concat: {len(df)}")
-print(df.head())
+# print(f"Total rows after concat: {len(df)}")
 
-# df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, errors='coerce')
+df["run_date"] = pd.to_datetime(df["run_date"].astype(str).str.strip(), dayfirst=True, errors='coerce')
+
 
 # print(df.tail(10))
 
-# invalid_dates = df[df["run_date"].isna()]
-# print(f"Rows with invalid run_date: {len(invalid_dates)}")
-# print(invalid_dates.head())
+invalid_dates = df[df["run_date"].isna()]
+print(f"Rows with invalid run_date: {len(invalid_dates)}")
+print(invalid_dates.head())
 
+print(df.head(10))
+print(df.tail(10))
 # df["gbtt_dep"] = pd.to_datetime(df["gbtt_dep"], errors='coerce')
 # df["gbtt_arr"] = pd.to_datetime(df["gbtt_arr"], errors='coerce')
 # df = df.sort_values(["run_date", "gbtt_dep", "gbtt_arr"])
