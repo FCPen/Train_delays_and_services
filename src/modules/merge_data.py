@@ -10,6 +10,8 @@ for f in files:
 
 df = pd.concat(dfs, ignore_index=True)
 
+
+df["run_date"] = df["run_date"].astype(str).str.strip() #stripping any leading/trailing spaces
 df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, errors='coerce', infer_datetime_format=True)
 invalid_dates = df[df["run_date"].isna()]
 if not invalid_dates.empty:
