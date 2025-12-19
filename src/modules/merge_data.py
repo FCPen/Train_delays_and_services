@@ -6,16 +6,20 @@ print(f"Found {len(files)} files")
 
 dfs = []
 for f in files:
-    dfs.append(pd.read_csv(f, skiprows=2)) #ensures the real header is used
+    temp_df = pd.read_csv(f, skiprows=2, header=0) #ensures the real header is used
+    dfs.append(temp_df)
+    print(f, temp_df.columns.tolist())
 
 df = pd.concat(dfs, ignore_index=True)
 
-df["run_date_raw"] = df["run_date"]
+df.tail(10)
 
-df["run_date_clean"] = df["run_date_raw"].astype(str).str.strip().str.replace(r'[\u200b\u200c\u200d\u00A0\u200e]', '', regex=True) #stripping any leading/trailing spaces and other odd characters
-df["run_date_parsed"] = pd.to_datetime(df["run_date_clean"], dayfirst=True, errors='coerce', infer_datetime_format=True)
+# df["run_date_raw"] = df["run_date"]
 
-print(df[df["run_date_parsed"].isna()][["run_date_raw"]])
+# df["run_date_clean"] = df["run_date_raw"].astype(str).str.strip().str.replace(r'[\u200b\u200c\u200d\u00A0\u200e]', '', regex=True) #stripping any leading/trailing spaces and other odd characters
+# df["run_date_parsed"] = pd.to_datetime(df["run_date_clean"], dayfirst=True, errors='coerce', infer_datetime_format=True)
+
+# print(df[df["run_date_parsed"].isna()][["run_date_raw"]])
 
 # # 3. Convert back to string in DD/MM/YYYY format
 # df["run_date"] = df["run_date"].dt.strftime("%d/%m/%Y")
