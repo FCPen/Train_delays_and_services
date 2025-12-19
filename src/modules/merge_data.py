@@ -13,7 +13,7 @@ for f in files:
 
 df = pd.concat(dfs, ignore_index=True)
 
-df["run_date"] = pd.to_datetime(df["run_date_clean"], dayfirst=True, errors='coerce', infer_datetime_format=True)
+df["run_date"] = pd.to_datetime(df["run_date"], dayfirst=True, errors='coerce', infer_datetime_format=True)
 
 df.tail(10)
 
