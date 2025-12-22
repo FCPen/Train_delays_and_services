@@ -17,8 +17,19 @@ for f in files[12:16]:
 
 df = pd.concat(dfs, ignore_index=True)
 # print(f"Total rows after concat: {len(df)}")
+
+def parse_run_date(s):
+    s = str(s).strip()
+    try:
+        return pd.to_datetime(s, format="%Y-%m-%d")
+    except ValueError:
+        try:
+            return pd.to_datetime(s, format="%d/%m/%Y")
+        except ValueError:
+            return pd.NaT
+ # this function should help resolve date parsing issues
 df['run_date_raw'] = df['run_date']
-df["run_date"] = pd.to_datetime(df["run_date"].astype(str).str.strip(), dayfirst=True, errors='coerce')
+df["run_date"] = df["run_date"].apply(parse_run_date)
 
 
 # print(df.tail(10))
