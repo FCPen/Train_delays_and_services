@@ -4,6 +4,11 @@ In this project I'm analysing train delays, cancellations, and unusual service p
 
 The aims:
 
-•	Predict if a train is likely to be late, and if so, how late
-•	Predict if a train is likely to be cancelled
-•	Look at unusual service patterns
+- Predict if a train is likely to be late, and if so, how late
+- Predict if a train is likely to be cancelled
+- Look at unusual service patterns
+
+## Data sources
+
+**Service data**: RealTime Trains using their RTT+ subscription.
+**Weather data**: Open Meteo's API.
